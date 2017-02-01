@@ -1,10 +1,15 @@
 package com.xu.myapplication;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
+import java.io.Serializable;
+
 /**
  * Data class, holding all of the returned data from JSON call
  */
 
-public class Movie {
+public class Movie implements Serializable {
     String posterpath;
     String overview;
     String releasedate;
@@ -18,6 +23,8 @@ public class Movie {
         this.voteaverage=voteav;
         this.originaltitle=origtit;
     }
+
+
 
 
 }

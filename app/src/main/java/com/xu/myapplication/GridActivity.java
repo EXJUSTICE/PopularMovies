@@ -1,5 +1,6 @@
 package com.xu.myapplication;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -18,7 +19,9 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.squareup.picasso.Picasso;
 
@@ -37,23 +40,29 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+//TODO mod image size, mod settings, mod savedinstance state
+
+
+//Checking for internet connection http://stackoverflow.com/questions/1560788/how-to-check-internet-access-on-android-inetaddress-never-times-out
 public class GridActivity extends AppCompatActivity {
     RecyclerView recycl;
-    ArrayList<String> moviesAddressArray;
+    FrameLayout progressWrapper;
+
     ArrayList<Movie>allMoviesArray;
     String JSON;
     MovieAdapter mMovieAdapter;
-    //Key for onSaveInstanceState check
-    private static final String SORT_SETTING_KEY = "sort_setting";
+
 
     //API Sorting params
 
     private static final String POPULARITY_DESC = "popularity.desc";
     private static final String RATING_DESC = "vote_average.desc";
-    private static final String FAVORITE = "favorite";
-    String sortBy = POPULARITY_DESC;
 
-    List<String> results;
+    String sortBy = null;
+    String jsonStr =null;
+
+    ArrayList<String> results;
+    boolean internetAccess;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,18 +70,32 @@ public class GridActivity extends AppCompatActivity {
         setContentView(R.layout.activity_grid);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        progressWrapper =(FrameLayout)findViewById(R.id.progressBarWrapper) ;
         recycl = (RecyclerView) findViewById(R.id.recycler);
+        sortBy=POPULARITY_DESC;
 
 
         recycl.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
-        // Create a grid based view, shoving 2 items per row!
+         //Create a grid based view, shoving 2 items per row!
         recycl.setLayoutManager(new GridLayoutManager(this, 2));
         recycl.setItemAnimator(new DefaultItemAnimator());
         //mMovieAdapter is only created if we finish making the movies
-        recycl.setAdapter(mMovieAdapter);
-       results = new ArrayList<>();
+
+        results = new ArrayList<>();
+        allMoviesArray = new ArrayList<>();
+        internetAccess=isOnline();
+
+        if(savedInstanceState != null) {
+            sortBy=savedInstanceState.getString("SORTBY");
+            if(savedInstanceState.containsKey("RESULTS")){
+                results = savedInstanceState.getStringArrayList("RESULTS");
+            }
+            if(savedInstanceState.containsKey("ALLMOVIES")){
+                allMoviesArray=(ArrayList<Movie>)savedInstanceState.getSerializable("ALLMOVIES");
+            }
 
 
+        }
         //We need to make a call for the top 20 movies first,
         //ttps://api.themoviedb.org/3/discover/movie?page=1&include_video=false&include_adult=false&sort_by=popularity.desc&language=en-US&api_key=%3C%3Capi_key%3E%3E'
         //Fetch movie ids, and query for trailers and reiews
@@ -80,16 +103,42 @@ public class GridActivity extends AppCompatActivity {
         //discoveer call actually has poster path.
         //https://developers.themoviedb.org/3/discover
 
+        if(internetAccess ==true){
+            FetchMoviesTask task = new FetchMoviesTask();
+            task.execute(sortBy);
+        }else{
+            Toast noconnect =Toast.makeText(this,"Please enable your internet connection and restart",Toast.LENGTH_LONG);
+            noconnect.show();
+        }
 
-        FetchMoviesTask task = new FetchMoviesTask();
-        task.execute(sortBy);
+
+
+
+
+
 
 
     }
+    //Handle config change via onSaveInstanceState
+    protected void onSaveInstanceState(Bundle bundle) {
+        super.onSaveInstanceState(bundle);
+        if (results != null && !results.isEmpty()){
+            bundle.putStringArrayList("RESULTS",results);
+        }
+        if(allMoviesArray != null && !allMoviesArray.isEmpty()){
+            bundle.putSerializable("ALLMOVIES",allMoviesArray);
+        }
+        bundle.putString("SORTBY",sortBy);
+
+    }
+
+
+//-------------------------------------------------ViewHolder code------------------------
 
     private class MovieHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
         private ImageView poster;
+        Movie selectedmovie;
 
 
         public MovieHolder(View itemView) {
@@ -102,36 +151,41 @@ public class GridActivity extends AppCompatActivity {
         //TODO add in the detailactivity as well as a way of tracking which one clicked
         @Override
         public void onClick(View v) {
-            /*
-            Intent launch = new Intent(this, DetailActivity.class);
+
+            Intent launch = new Intent(GridActivity.this, DetailActivity.class);
 
 
-            launch.putExtra("AlphaKey", );
-            launch.putExtra("AlphaName", );
+            launch.putExtra("movie",selectedmovie);
             startActivity(launch);
-            */
+
 
 
         }
 
         public void bindMovie(String address) {
-            //Picasso's one step bind
+            //TODO errors in this part
             String base = "http://image.tmdb.org/t/p/";
-            String size= "w185/";
+            String size= "w342/";
             String path = address;
             String imageurl=null;
 
 
-                Uri builtUri = Uri.parse(base).buildUpon()
-                        .appendQueryParameter("size", size)
-                        .appendQueryParameter("imagepath", path)
-                        .build();
-
-                 imageurl = builtUri.toString();
+                StringBuilder sb= new StringBuilder(base);
+                sb.append(size);
+                sb.append(address);
+                imageurl = sb.toString();
 
 
 
-            Picasso.with(getApplicationContext()).load(imageurl).into(poster);
+
+
+            Picasso.with(getApplicationContext()).load(imageurl).placeholder(R.color.colorAccent).into(poster);
+
+
+        }
+        //Bind movie into the viewholder;
+        public void bindMovieInfo(Movie movie){
+            selectedmovie=movie;
 
         }
 
@@ -139,10 +193,14 @@ public class GridActivity extends AppCompatActivity {
 
 
     private class MovieAdapter extends RecyclerView.Adapter<MovieHolder> {
+        Context mContext;
         private ArrayList<String>movieaddresses;
+        private ArrayList<Movie>moviecollection;
 
-        public MovieAdapter(ArrayList<String> movs) {
+        public MovieAdapter(ArrayList<String> movs,ArrayList<Movie>allmovies,Context context) {
+            mContext=context;
             movieaddresses= movs;
+            moviecollection=allmovies;
         }
 
         @Override
@@ -150,49 +208,34 @@ public class GridActivity extends AppCompatActivity {
             LayoutInflater layoutinflater = LayoutInflater.from(GridActivity.this);
 
             View view = layoutinflater.inflate(R.layout.row_grid, parent, false);
-            return new MovieHolder(view);
+            final MovieHolder viewholder = new MovieHolder(view);
+
+            return viewholder;
         }
 
         //bind data to holder
 
         public void onBindViewHolder(MovieHolder holder, int position) {
             String movieaddress= movieaddresses.get(position);
+            Movie selectedmovie = allMoviesArray.get(position);
+
             holder.bindMovie(movieaddress);
+            holder.bindMovieInfo(selectedmovie);
         }
 
         @Override
         public int getItemCount() {
             return movieaddresses.size();
         }
-    }
 
-    //TODO Fix parser to work in our situation, consult documentation
-    //https://developers.themoviedb.org/3/discover
-    private void getMoviesAddressesFromJson(String jsonStr) throws JSONException {
-        JSONObject movieJson = new JSONObject(jsonStr);
-        JSONArray movieArray = movieJson.getJSONArray("results");
-
-
-
-        for (int i = 0; i < movieArray.length(); i++) {
-            JSONObject movie = movieArray.getJSONObject(i);
-            String address = movie.getString("poster_path");
-            results.add(address);
-        }
-
-        //Added 26-01 parsing all movie data from json
-        for (int i = 0;i<movieArray.length();i++){
-            JSONObject movie = movieArray.getJSONObject(i);
-            String adr = movie.getString("poster_path");
-            String overv= movie.getString("overview");
-            String released = movie.getString("release_date");
-            String voteav =movie.getString("vote_average");
-            String origtit = movie.getString("original_title");
-            allMoviesArray.add(new Movie(adr,overv,released,voteav,origtit));
-        }
 
 
     }
+
+
+
+
+
 
 
     @Override
@@ -210,11 +253,58 @@ public class GridActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
+        if (id == R.id.sortPopular) {
+            sortBy=POPULARITY_DESC;
+
+            if(internetAccess ==true){
+                results.clear();;
+                allMoviesArray.clear();
+                FetchMoviesTask task2 = new FetchMoviesTask();
+                task2.execute(sortBy);
+                mMovieAdapter.notifyDataSetChanged();
+                recycl.invalidate();
+            }else{
+                Toast noconnect =Toast.makeText(this,"Please enable your internet connection and restart",Toast.LENGTH_LONG);
+                noconnect.show();
+            }
+            return true;
+        }
+
+        if (id == R.id.sortRating) {
+            sortBy=RATING_DESC;
+
+            if(internetAccess ==true){
+                //TODO in order for this to work, arraylists must be cleared, otherwise wont respond
+                //TODO 2 to initialization
+                results.clear();;
+                allMoviesArray.clear();
+                FetchMoviesTask task2 = new FetchMoviesTask();
+                task2.execute(sortBy);
+                mMovieAdapter.notifyDataSetChanged();
+                recycl.invalidate();
+            }else{
+                Toast noconnect =Toast.makeText(this,"Please enable your internet connection and restart",Toast.LENGTH_LONG);
+                noconnect.show();
+            }
             return true;
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    public boolean isOnline() {
+
+        Runtime runtime = Runtime.getRuntime();
+        try {
+
+            Process ipProcess = runtime.exec("/system/bin/ping -c 1 8.8.8.8");
+            int     exitValue = ipProcess.waitFor();
+            return (exitValue == 0);
+
+        } catch (IOException e)          { e.printStackTrace(); }
+        catch (InterruptedException e) { e.printStackTrace(); }
+
+        return false;
     }
 
     //JSON Fetching code--------------------------------------------------------------------
@@ -222,6 +312,57 @@ public class GridActivity extends AppCompatActivity {
 
         private final String LOG_TAG = FetchMoviesTask.class.getSimpleName();
         //TODO Progressbars
+        //TODO Fix parser to work in our situation, consult documentation
+        //https://developers.themoviedb.org/3/discover
+        private void getMoviesAddressesFromJson(String jsonStr) throws JSONException {
+            JSONObject movieJson = new JSONObject(jsonStr);
+            JSONArray movieArray = movieJson.getJSONArray("results");
+
+
+            for (int i = 0; i < movieArray.length(); i++) {
+                JSONObject movie = movieArray.getJSONObject(i);
+                String address = movie.getString("poster_path");
+                results.add(address);
+
+
+                /*Toast toast= Toast.makeText(GridActivity.this,address,Toast.LENGTH_LONG);
+                toast.show();
+                */
+
+
+            }
+
+            //Added 26-01 parsing all movie data from json
+            for (int i = 0; i < movieArray.length(); i++) {
+                JSONObject movie = movieArray.getJSONObject(i);
+                String adr = movie.getString("poster_path");
+                String overv = movie.getString("overview");
+                String released = movie.getString("release_date");
+                String voteav = movie.getString("vote_average");
+                String origtit = movie.getString("original_title");
+                allMoviesArray.add(new Movie(adr, overv, released, voteav, origtit));
+            }
+
+
+            //28.01 Moved All adapter code here. Previously worked but stopped
+            //Problem may be due to results arraylist being empty before being loaded, so moved adapter code here
+            //So that there must be a full array
+
+            if (mMovieAdapter == null) {
+                mMovieAdapter = new MovieAdapter(results,allMoviesArray,GridActivity.this);
+
+                //Actually setting the adapter to view is done in main thread
+
+            }
+
+            recycl.setAdapter(mMovieAdapter);
+            recycl.invalidate();
+        }
+
+        @Override
+        protected void onPreExecute(){
+            progressWrapper.setVisibility(View.VISIBLE);
+        }
 
 
         @Override
@@ -234,7 +375,7 @@ public class GridActivity extends AppCompatActivity {
             HttpURLConnection urlConnection = null;
             BufferedReader reader = null;
 
-            String jsonStr = null;
+
 
             try {
                 final String BASE_URL = "http://api.themoviedb.org/3/discover/movie?";
@@ -289,14 +430,7 @@ public class GridActivity extends AppCompatActivity {
                 }
             }
 
-            try {
-                //if successful, call get movies from JSONSTR
-                getMoviesAddressesFromJson(jsonStr);
-                return null;
-            } catch (JSONException e) {
-                Log.e(LOG_TAG, e.getMessage(), e);
-                e.printStackTrace();
-            }
+
             //of not successful, return null
 
             return null;
@@ -304,14 +438,16 @@ public class GridActivity extends AppCompatActivity {
         //TODO not sure if this checks out lol with void in argument
         @Override
         protected void onPostExecute(Void v) {
-            if (moviesAddressArray != null) {
-                if (mMovieAdapter == null) {
-                    mMovieAdapter = new MovieAdapter(moviesAddressArray);
-                    //Actually setting the adapter to view is done in main thread
+            progressWrapper.setVisibility(View.GONE);
+            try {
+                //PARSING WORKS TESTED WITH TOASTS
+                getMoviesAddressesFromJson(jsonStr);
 
-                }
-
+            } catch (JSONException e) {
+                Log.e(LOG_TAG, e.getMessage(), e);
+                e.printStackTrace();
             }
+
         }
     }
 }
