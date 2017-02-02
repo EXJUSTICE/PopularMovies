@@ -21,7 +21,7 @@
         </activity>
         <activity
             android:name=".DetailActivity"
-            android:label="Movie Details"
+
             android:theme="@style/AppTheme.NoActionBar"></activity>
     </application>
 

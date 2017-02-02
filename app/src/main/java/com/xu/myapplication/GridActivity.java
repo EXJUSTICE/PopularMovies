@@ -55,8 +55,8 @@ public class GridActivity extends AppCompatActivity {
 
     //API Sorting params
 
-    private static final String POPULARITY_DESC = "popularity.desc";
-    private static final String RATING_DESC = "vote_average.desc";
+    private static final String POPULARITY_DESC = "popular";
+    private static final String RATING_DESC = "top_rated";
 
     String sortBy = null;
     String jsonStr =null;
@@ -378,12 +378,13 @@ public class GridActivity extends AppCompatActivity {
 
 
             try {
-                final String BASE_URL = "http://api.themoviedb.org/3/discover/movie?";
+                final String BASE_URL = "http://api.themoviedb.org/3/movie";
                 final String SORT_BY_PARAM = "sort_by";
                 final String API_KEY_PARAM = "api_key";
 
                 Uri builtUri = Uri.parse(BASE_URL).buildUpon()
-                        .appendQueryParameter(SORT_BY_PARAM, params[0])
+                        .appendPath(params[0])
+                        //we cant use appendQueryParam because it adds a ? mark
 
                         //TODO get a key for moviesDB
                         .appendQueryParameter(API_KEY_PARAM, getString(R.string.tmdb_api_key))

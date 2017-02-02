@@ -27,23 +27,29 @@ public class DetailActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        originaltit = (TextView) findViewById(R.id.originalTitle);
-        poster= (ImageView)findViewById(R.id.poster_image);
-        overv =(TextView)findViewById(R.id.overview);
-        voteAv = (TextView)findViewById(R.id.voteaverage);
-        release= (TextView)findViewById(R.id.releasedate);
-
         Intent intent = getIntent();
-        movie = (Movie)intent.getSerializableExtra("movie");
 
-        originaltit.setText(movie.originaltitle);
-        overv.setText(movie.overview);
-        release.setText(movie.releasedate);
-        voteAv.setText(movie.voteaverage);
+        if(intent !=null){
+            movie = (Movie)intent.getSerializableExtra("movie");
+            Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+            setSupportActionBar(toolbar);
+            getSupportActionBar().setTitle(movie.originaltitle);
 
-        loadImage();
+            poster= (ImageView)findViewById(R.id.poster_image);
+            overv =(TextView)findViewById(R.id.overview);
+            voteAv = (TextView)findViewById(R.id.voteaverage);
+            release= (TextView)findViewById(R.id.releasedate);
+
+
+
+
+            overv.setText(movie.overview);
+            release.setText(movie.releasedate);
+            voteAv.setText(movie.voteaverage);
+
+            loadImage();
+
+        }
 
 
     }

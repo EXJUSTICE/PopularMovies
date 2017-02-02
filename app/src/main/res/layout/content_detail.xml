@@ -18,14 +18,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin">
-    <ImageView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:srcCompat="@mipmap/ic_launcher"
-        android:layout_marginTop="33dp"
-        android:id="@+id/poster_image"
-        android:layout_below="@+id/originalTitle"
-        android:layout_centerHorizontal="true" />
+
 
     <TextView
         android:text="TextView"
@@ -35,16 +28,6 @@
         android:id="@+id/overview"
         android:layout_marginTop="29dp"
         android:layout_below="@+id/releasedate"
-        android:layout_centerHorizontal="true" />
-
-    <TextView
-        android:text="TextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="13dp"
-        android:textSize="20dp"
-        android:id="@+id/originalTitle"
-        android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true" />
 
     <TextView
@@ -74,7 +57,7 @@
         android:id="@+id/voteaverage"
         android:textSize="17dp"
         android:layout_marginTop="120dp"
-        android:layout_below="@+id/poster_image"
+
         android:layout_toEndOf="@+id/textView" />
 </RelativeLayout>
 
